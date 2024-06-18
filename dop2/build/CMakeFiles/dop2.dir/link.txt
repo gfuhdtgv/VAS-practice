@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/dop2.dir/function2.c.o -o dop2 
