@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/Dop1.dir/function.cpp.o -o Dop1 

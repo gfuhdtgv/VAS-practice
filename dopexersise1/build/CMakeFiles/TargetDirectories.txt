@@ -1,0 +1,3 @@
+/home/bormoley/Документы/VAS-practice/dopexersise1/build/CMakeFiles/Dop1.dir
+/home/bormoley/Документы/VAS-practice/dopexersise1/build/CMakeFiles/edit_cache.dir
+/home/bormoley/Документы/VAS-practice/dopexersise1/build/CMakeFiles/rebuild_cache.dir
