@@ -1,1 +1,0 @@
-/usr/bin/cc CMakeFiles/MDArray.dir/MDArray.c.o -o MDArray 
