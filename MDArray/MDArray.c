@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 
 typedef void* (*initialization)(int*, int); // Определение типа функции инициализации
 
@@ -97,12 +96,11 @@ int main() {
     }
 
    
-    createMDArray(&array, n, initFunction, dimensions);//Вызов ф-ии создания массива
-
+    createMDArray(&array, n, initFunction, dimensions); //Вызов ф-ии создания массива
     printArray((void**)array, n, dimensions, 0); //Вывод
 
-    freeMDArray(array, n, dimensions);
-    free(dimensions);
+    freeMDArray(array, n, dimensions); // Освобождение памяти
+    free(dimensions); 
 
     return 0;
 }
