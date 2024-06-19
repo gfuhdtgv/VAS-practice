@@ -1,0 +1,3 @@
+/home/bormoley/Документы/VAS-practice/MDArray/build/CMakeFiles/MDArray.dir
+/home/bormoley/Документы/VAS-practice/MDArray/build/CMakeFiles/edit_cache.dir
+/home/bormoley/Документы/VAS-practice/MDArray/build/CMakeFiles/rebuild_cache.dir
