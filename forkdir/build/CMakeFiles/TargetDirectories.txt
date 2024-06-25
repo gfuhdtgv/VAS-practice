@@ -1,3 +1,0 @@
-/home/bormoley/Документы/VAS-practice/forkdir/build/CMakeFiles/forkdir.dir
-/home/bormoley/Документы/VAS-practice/forkdir/build/CMakeFiles/edit_cache.dir
-/home/bormoley/Документы/VAS-practice/forkdir/build/CMakeFiles/rebuild_cache.dir
