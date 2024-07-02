@@ -19,18 +19,18 @@ typedef struct {
     pid_t pid;
 } User;
 
-void UserProcess(int id, float capital, int pipe_fd[]) {
-    // Поведение игроков
-    srand(time(NULL) ^ getpid());
+void UserProcess(int id, float capital, int pipe_fd[]) {// Поведение игроков
+    srand(time(NULL) ^ getpid()); // более случайный рандом, чтобы у каждого процесса был свой
     while (capital > 0) {
         char message[MAX_MESSAGE_LENGTH];
-        float transaction_capital = ((float) rand() / RAND_MAX) * (0.5 * capital - 0.25 * capital) + 0.25 * capital;
-        if (rand() % 2 == 0) {
+        float transaction_capital = ((float) rand() / RAND_MAX) * (0.5 * capital - 0.25 * capital) + 0.25 * capital;//сумма транзакции
+
+        if (rand() % 2 == 0) { //выбор состояния -покупка -продажа
             snprintf(message, sizeof(message), "Игрок %d: покупает %.2f", id, transaction_capital);
         } else {
             snprintf(message, sizeof(message), "Игрок %d: продает %.2f", id, transaction_capital);
         }
-        write(pipe_fd[1], message, sizeof(message));
+        write(pipe_fd[1], message, sizeof(message));//отправка в род.процесс
 
         char result_message[MAX_MESSAGE_LENGTH];
         read(pipe_fd[0], result_message, sizeof(result_message));
@@ -47,23 +47,25 @@ void UserProcess(int id, float capital, int pipe_fd[]) {
     exit(0);
 }
 
-void market(int num_user, User users[]) {
-    int epfd = epoll_create1(0);
+void market(int num_user, User users[]) { //фун-ия поведения рынка
+    int epfd = epoll_create1(0);//создает экземпляр epoll 
     if (epfd == -1) {
-        perror("epoll_create1");
+        perror("Ошибка создания epoll");
         exit(EXIT_FAILURE);
     }
 
-    struct epoll_event event;
-    struct epoll_event *events = calloc(MAX_EVENTS, sizeof(event));
+    struct epoll_event event; //структура для добавления дескрипт. в epoll
+    struct epoll_event *events = calloc(MAX_EVENTS, sizeof(event)); //Для хранения событий (epoll_wait)
 
-    for (int i = 0; i < num_user; ++i) {
-        event.events = EPOLLIN;
+    for (int i = 0; i < num_user; ++i) { //добавл. файловых дескрипт.
+        event.events = EPOLLIN;//события чтения
         event.data.fd = users[i].pipe_fd[0];
         if (epoll_ctl(epfd, EPOLL_CTL_ADD, users[i].pipe_fd[0], &event) == -1) {
-            perror("epoll_ctl: add");
+            perror("Ошибка добавления файлового дескриптора в epoll");
             exit(EXIT_FAILURE);
         }
+	int flags = fcntl(users[i].pipe_fd[0],F_GETFL,0); //файловый дескрипт. в неблокирующий режим
+    	fcntl(users[i].pipe_fd[0],F_SETFL,flags | O_NONBLOCK);
     }
 
     int transaction_count = 0;
@@ -71,7 +73,7 @@ void market(int num_user, User users[]) {
     while (1) {
         int nfds = epoll_wait(epfd, events, MAX_EVENTS, -1);
         if (nfds == -1) {
-            perror("epoll_wait");
+            perror("Ошибка ожидания событий ввода/вывода epoll_wait");
             exit(EXIT_FAILURE);
         }
 
@@ -101,7 +103,7 @@ void market(int num_user, User users[]) {
 		    if (users[user_id].capital <= 0 || users[j].capital <= 0) {
                         continue; // Пропускаем игроков с нулевым капиталом
                     }
-                    float transaction_capital_i, transaction_capital_j;
+                    float transaction_capital_i, transaction_capital_j;//извлечение капитала сделки
                     sscanf(message, "Игрок %*d: %*s %f", &transaction_capital_i);
                     char message_j[MAX_MESSAGE_LENGTH];
                     read(users[j].pipe_fd[0], message_j, sizeof(message_j));
@@ -116,8 +118,10 @@ void market(int num_user, User users[]) {
                     float result = transaction_capital_i - transaction_capital_j;
                     char result_message[MAX_MESSAGE_LENGTH];
                     snprintf(result_message, sizeof(result_message), "Результат транзакции: %.2f", result);
-                    write(users[user_id].pipe_fd[1], result_message, sizeof(result_message));
+
+                    write(users[user_id].pipe_fd[1], result_message, sizeof(result_message));//передача рез-та транзакции
                     write(users[j].pipe_fd[1], result_message, sizeof(result_message));
+
                     users[user_id].capital += result;
                     users[j].capital -= result;
 
@@ -213,7 +217,7 @@ void market(int num_user, User users[]) {
 }
 
 void createUserProcesses(int num_user, User users[]) {
-    for (int i = 0; i < num_user; i++) {
+    for (int i = 0; i < num_user; i++) { //состояние id капитал
         users[i].id = i + 1;
         users[i].capital = ((float) rand() / RAND_MAX) * 1000.0 + 100.0;
         users[i].state = 0;
