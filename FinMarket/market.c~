@@ -31,7 +31,7 @@ void UserProcess(int id, float capital, int pipe_fd[]) { //поведение и
             snprintf(message, sizeof(message), "Игрок %d: продает %.2f", id, transaction_capital);
         }
 
-        write(pipe_fd[1], message, sizeof(message)); // Отправка состояния в род.процесс
+        //write(pipe_fd[1], message, sizeof(message)); // Отправка состояния в род.процесс
 
         // Ожидание результата транзакции от рынка
         char result_message[MAX_MESSAGE_LENGTH];
@@ -66,15 +66,13 @@ void market(int num_user, User users[]) { //функция поведения р
             }
         }
 
-	FD_SET(-1, &readfds);//удалить
-
         tv.tv_sec = 1; // Таймаут 1 секунда
         tv.tv_usec = 0;
 	
         int wait_dec = select(max_fd + 1, &readfds, NULL, NULL, &tv);
         if (wait_dec == -1) {
             printf("Ошибка чтения данных игроков: %d\n", errno);
-            exit(EXIT_FAILURE);
+            //exit(EXIT_FAILURE);
         } else if (wait_dec) {
             for (int i = 0; i < num_user; i++) {
                 if (users[i].capital > 0 && FD_ISSET(users[i].pipe_fd[0], &readfds)) {

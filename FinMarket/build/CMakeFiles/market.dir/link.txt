@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/market.dir/market.c.o -o market 

@@ -1,3 +1,0 @@
-/home/bormoley/Документы/VAS-practice/pselect/build/CMakeFiles/sigalarm.dir
-/home/bormoley/Документы/VAS-practice/pselect/build/CMakeFiles/edit_cache.dir
-/home/bormoley/Документы/VAS-practice/pselect/build/CMakeFiles/rebuild_cache.dir
