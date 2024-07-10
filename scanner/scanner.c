@@ -12,7 +12,7 @@
 #include<time.h>
 
 #define MAX_EVENTS 1000
-#define TIMEOUT 1000
+#define TIMEOUT 2000
 
 void log_error(const char *message){ //Для вывода сообщений об ошибках
 	fprintf(stderr, "Ошибка: %s\n", message);
@@ -52,7 +52,7 @@ int max_open_files(){ //получения органичений на фд дл
 	return limit.rlim_cur;
 }
 
-void scan_port (const char *ip, int start_port, int end_port){ //Сканирование портов
+void scan_port (const char *ip, int *ports, int port_count){ //Сканирование портов
 	int epoll_fd = epoll_create1(0);
 	
 	if (epoll_fd == -1){
@@ -66,137 +66,116 @@ void scan_port (const char *ip, int start_port, int end_port){ //Сканиро�
 	int max_socket = max_open_files();
 	int open_socket = 0;
 
-	for (int port = start_port; port <= end_port; port++){ //идем по портам
+	for (int i=0; i<port_count;i++){
+		int port = ports[i];
 
-		if(open_socket >= max_socket - 40){ //если создалось максимум сокетов
-			int s_wait = epoll_wait(epoll_fd,events,MAX_EVENTS, TIMEOUT);
-			
-			if (s_wait == -1){
-				log_error("Ошибка ожидания события epoll");
-				break;
-			}
-
-			for (int i = 0; i < s_wait;i++){ 
-
-				int sock_fd = events[i].data.fd;
-				int error_sock = 0;
-				
-				socklen_t lenght = sizeof(error_sock);
-
-				if (getsockopt(sock_fd,SOL_SOCKET,SO_ERROR,&error_sock,&lenght)==-1){//получение дескрипт.сокета
-					close(sock_fd);
-					open_socket--;
-					continue;
-				}
-
-				if (error_sock !=0){
-					close(sock_fd);
-					open_socket--;
-					continue;
-				}
-
-				struct sockaddr_in addr;
-				socklen_t addr_len = sizeof(addr);
-
-				if (getpeername(sock_fd, (struct sockaddr*)&addr, &addr_len)== -1){ //получение инф-ии о подключении
-					close(sock_fd);
-					open_socket--;
-					continue;
-				}
-				printf ("Порт %d открыт \n",ntohs(addr.sin_port));
-				close(sock_fd);
-				open_socket--;
-			}
+		if (open_socket >= max_socket / 20){
+			break;
 		}
-		int sock_fd = socket(AF_INET,SOCK_STREAM,0); //создание сокета
+
+		int sock_fd = socket(AF_INET, SOCK_STREAM,0);
 
 		if(sock_fd == -1){
-			fprintf(stderr,"Ошибка: не  создан сокет для порта %d: %s\n", port , strerror(errno));
-			close(sock_fd);
-			continue;
-		}
+                        fprintf(stderr,"Ошибка: не  создан сокет для порта %d: %s\n", port , strerror(errno));
+                        close(sock_fd);
+                        continue;
+                }
 
-		if (nonblock_sock(sock_fd)==-1){ 
-			fprintf(stderr,"Ошибка:не удалось установить o_nonblock на порт %d  %s\n", port, strerror(errno));
-			close(sock_fd);
-			continue;
-		}
+                if (nonblock_sock(sock_fd)==-1){
+                        fprintf(stderr,"Ошибка:не удалось установить o_nonblock на порт %d  %s\n", port, strerror(errno));
+                        close(sock_fd);
+                        continue;
+                }
 
-		struct timeval timeout;
-		timeout.tv_sec = TIMEOUT / 1000;
-		timeout.tv_usec = (TIMEOUT % 1000) * 1000;
-		if (setsockopt(sock_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
-			fprintf(stderr, "Ошибка установки таймаута на порт %d: %s\\n", port, strerror(errno));
-			close(sock_fd);
-			continue;
-		}
-		
+                struct timeval timeout;
+                timeout.tv_sec = TIMEOUT / 1000;
+                timeout.tv_usec = (TIMEOUT % 1000) * 1000;
+                if (setsockopt(sock_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
+                        fprintf(stderr, "Ошибка установки таймаута на порт %d: %s\\n", port, strerror(errno));
+                        close(sock_fd);
+                        continue;
+                }
+
 		struct sockaddr_in server_addr;
-		memset(&server_addr,0,sizeof(server_addr));
+                memset(&server_addr,0,sizeof(server_addr));
 
-		server_addr.sin_family = AF_INET; //IPv4
-		server_addr.sin_port = htons(port);//преобраз. из формата хоста в сетевой
-		inet_pton(AF_INET,ip,&server_addr.sin_addr);//преобраз.из строки в бинар
-		
-		connect(sock_fd,(struct sockaddr*)&server_addr,sizeof(server_addr)); //соединю с сервером
+                server_addr.sin_family = AF_INET; //IPv4
+                server_addr.sin_port = htons(port);//преобраз. из формата хоста в сетевой
+                inet_pton(AF_INET,ip,&server_addr.sin_addr);//преобраз.из строки в бинар
 
-		event.data.fd = sock_fd;
-		event.events = EPOLLOUT | EPOLLET;
+                connect(sock_fd,(struct sockaddr*)&server_addr,sizeof(server_addr)); //соединю с сервером
 
-		if (epoll_ctl(epoll_fd,EPOLL_CTL_ADD,sock_fd,&event)==-1){ //Добавление сокета в epoll
-			fprintf(stderr,"Ошибка добавления сокета: %d %s\n",port,strerror(errno));
-			close(sock_fd);
-			continue;
-		}
-		open_socket++;
-	}
+                event.data.fd = sock_fd;
+                event.events = EPOLLOUT | EPOLLET;
+
+                if (epoll_ctl(epoll_fd,EPOLL_CTL_ADD,sock_fd,&event)==-1){ //Добавление сокета в epoll
+                        fprintf(stderr,"Ошибка добавления сокета: %d %s\n",port,strerror(errno));
+                        close(sock_fd);
+                        continue;
+                }
+                open_socket++;
+        }
+	
 	while (open_socket > 0){ //проверка портов
-		int s_wait = epoll_wait(epoll_fd,events,MAX_EVENTS, TIMEOUT);
+                int s_wait = epoll_wait(epoll_fd,events,MAX_EVENTS, TIMEOUT);
 
 		if (s_wait == -1){
-			log_error("Ошибка ожидания события epoll");
+                        log_error("Ошибка ожидания события epoll");
+                        break;
+                } else if (s_wait == 0){
+			//printf("Таймаут ожидания события\n");
 			break;
-		}
+		} else {
+			for (int i=0; i<s_wait; i++){
+				int sock_fd = events[i].data.fd;
+				int error_sock = 0;
 
-		if (s_wait == 0){ //если таймаут истек и нет событий
-			break;
-		}
-			
-		for (int i=0; i<s_wait; i++){
-			int sock_fd = events[i].data.fd;
-			int error_sock = 0;
+                        	socklen_t lenght = sizeof(error_sock);
+                        	if (getsockopt(sock_fd,SOL_SOCKET,SO_ERROR,&error_sock,&lenght)==-1){
+                                	close(sock_fd);
+                                	open_socket--;
+                                	continue;
+                        	}
 
-			socklen_t lenght = sizeof(error_sock);
-			if (getsockopt(sock_fd,SOL_SOCKET,SO_ERROR,&error_sock,&lenght)==-1){
-				close(sock_fd);
-				open_socket--;
-				continue;
+                        	if (error_sock != 0){
+                                	close(sock_fd);
+                                	open_socket--;
+                                	continue;
+                        	}
+
+                        	struct sockaddr_in addr;
+                        	socklen_t addr_len = sizeof(addr);
+
+                        	if (getpeername(sock_fd, (struct sockaddr*)&addr, &addr_len)== -1){
+                                	close(sock_fd);
+                                	open_socket--;
+                                	continue;
+                        	}
+                        	printf ("Порт %d открыт \n",ntohs(addr.sin_port));
+                        	close(sock_fd);
+                        	open_socket--;
 			}
-
-			if (error_sock != 0){
-				close(sock_fd);
-				open_socket--;
-				continue;
-			}
-
-			struct sockaddr_in addr;
-			socklen_t addr_len = sizeof(addr);
-
-			if (getpeername(sock_fd, (struct sockaddr*)&addr, &addr_len)== -1){
-				close(sock_fd);
-				open_socket--;
-				continue;
-			}
-			printf ("Порт %d открыт \n",ntohs(addr.sin_port));
-			close(sock_fd);
-			open_socket--;
 		}
 	}
+	//printf("Закрытие epoll\n");
 	close(epoll_fd);
 }
 
+void start_scan_port(const char *ip, int start_port, int end_port){
+        int port_range = end_port - start_port +1;
+        int *ports = malloc(port_range * sizeof(int));
+
+        for (int i=0; i<port_range;i++){
+                ports[i] = start_port + i;
+        }
+
+        scan_port(ip,ports,port_range);
+
+        free(ports);
+}
+
 void child_processes(const char *ip, int start_port, int end_port){
-	float num_processes = (end_port - start_port)/100;
+	float num_processes = (end_port - start_port + 999)/1000;
 	num_processes = (int)num_processes;
 	if (num_processes == 0){
 		num_processes=1;
@@ -218,7 +197,7 @@ void child_processes(const char *ip, int start_port, int end_port){
 			}
 
 			//printf ("Дочерний процесс сканирует от %d до  %d\n",child_start,child_end);
-			scan_port(ip,child_start,child_end);
+			start_scan_port(ip,child_start,child_end);
 			exit(EXIT_SUCCESS);
 		}
 	}
