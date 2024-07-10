@@ -12,6 +12,7 @@
 #include<time.h>
 
 #define MAX_EVENTS 1000
+#define TIMEOUT 1000
 
 void log_error(const char *message){ //Для вывода сообщений об ошибках
 	fprintf(stderr, "Ошибка: %s\n", message);
@@ -67,8 +68,8 @@ void scan_port (const char *ip, int start_port, int end_port){ //Сканиро�
 
 	for (int port = start_port; port <= end_port; port++){ //идем по портам
 
-		if(open_socket >= max_socket - 10){ //если создалось максимум сокетов
-			int s_wait = epoll_wait(epoll_fd,events,MAX_EVENTS, 1000);
+		if(open_socket >= max_socket - 40){ //если создалось максимум сокетов
+			int s_wait = epoll_wait(epoll_fd,events,MAX_EVENTS, TIMEOUT);
 			
 			if (s_wait == -1){
 				log_error("Ошибка ожидания события epoll");
@@ -83,6 +84,12 @@ void scan_port (const char *ip, int start_port, int end_port){ //Сканиро�
 				socklen_t lenght = sizeof(error_sock);
 
 				if (getsockopt(sock_fd,SOL_SOCKET,SO_ERROR,&error_sock,&lenght)==-1){//получение дескрипт.сокета
+					close(sock_fd);
+					open_socket--;
+					continue;
+				}
+
+				if (error_sock !=0){
 					close(sock_fd);
 					open_socket--;
 					continue;
@@ -114,6 +121,15 @@ void scan_port (const char *ip, int start_port, int end_port){ //Сканиро�
 			close(sock_fd);
 			continue;
 		}
+
+		struct timeval timeout;
+		timeout.tv_sec = TIMEOUT / 1000;
+		timeout.tv_usec = (TIMEOUT % 1000) * 1000;
+		if (setsockopt(sock_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
+			fprintf(stderr, "Ошибка установки таймаута на порт %d: %s\\n", port, strerror(errno));
+			close(sock_fd);
+			continue;
+		}
 		
 		struct sockaddr_in server_addr;
 		memset(&server_addr,0,sizeof(server_addr));
@@ -135,10 +151,14 @@ void scan_port (const char *ip, int start_port, int end_port){ //Сканиро�
 		open_socket++;
 	}
 	while (open_socket > 0){ //проверка портов
-		int s_wait = epoll_wait(epoll_fd,events,MAX_EVENTS, 1000);
+		int s_wait = epoll_wait(epoll_fd,events,MAX_EVENTS, TIMEOUT);
 
 		if (s_wait == -1){
 			log_error("Ошибка ожидания события epoll");
+			break;
+		}
+
+		if (s_wait == 0){ //если таймаут истек и нет событий
 			break;
 		}
 			
@@ -148,6 +168,12 @@ void scan_port (const char *ip, int start_port, int end_port){ //Сканиро�
 
 			socklen_t lenght = sizeof(error_sock);
 			if (getsockopt(sock_fd,SOL_SOCKET,SO_ERROR,&error_sock,&lenght)==-1){
+				close(sock_fd);
+				open_socket--;
+				continue;
+			}
+
+			if (error_sock != 0){
 				close(sock_fd);
 				open_socket--;
 				continue;
@@ -170,7 +196,11 @@ void scan_port (const char *ip, int start_port, int end_port){ //Сканиро�
 }
 
 void child_processes(const char *ip, int start_port, int end_port){
-	int num_processes = 4;
+	float num_processes = (end_port - start_port)/100;
+	num_processes = (int)num_processes;
+	if (num_processes == 0){
+		num_processes=1;
+	}
 	int port_range = (end_port - start_port + 1)/num_processes; //разбитие на минидиапазоны для доч.процессов
 
 	for(int i = 0; i<num_processes;i++){
@@ -187,7 +217,7 @@ void child_processes(const char *ip, int start_port, int end_port){
 				child_end = end_port;
 			}
 
-			printf ("Дочерний процесс сканирует от %d до  %d\n",child_start,child_end);
+			//printf ("Дочерний процесс сканирует от %d до  %d\n",child_start,child_end);
 			scan_port(ip,child_start,child_end);
 			exit(EXIT_SUCCESS);
 		}
